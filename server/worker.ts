@@ -679,7 +679,9 @@ export default {
       const pathname = new URL(request.url).pathname;
       if (pathname.startsWith("/api/")) return await handleApi(request, env);
       if (pathname.startsWith("/uploads/")) return await handleUpload(request, env);
-      return env.ASSETS.fetch(request);
+      const asset = await env.ASSETS.fetch(request);
+      if (asset.status !== 404 || request.method !== "GET") return asset;
+      return env.ASSETS.fetch(new Request(new URL("/index.html", request.url), request));
     } catch (error) {
       console.error(error);
       return json({ error: "Something went wrong. Please try again." }, 500);
