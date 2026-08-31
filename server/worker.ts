@@ -19,6 +19,7 @@ type Stream = {
 interface Env {
   DB: D1Database;
   FILES: R2Bucket;
+  ASSETS: Fetcher;
 }
 
 const encoder = new TextEncoder();
@@ -678,7 +679,7 @@ export default {
       const pathname = new URL(request.url).pathname;
       if (pathname.startsWith("/api/")) return await handleApi(request, env);
       if (pathname.startsWith("/uploads/")) return await handleUpload(request, env);
-      return new Response(null, { status: 404 });
+      return env.ASSETS.fetch(request);
     } catch (error) {
       console.error(error);
       return json({ error: "Something went wrong. Please try again." }, 500);
