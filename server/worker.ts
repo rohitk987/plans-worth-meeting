@@ -18,7 +18,8 @@ type Stream = {
 
 interface Env {
   DB: D1Database;
-  FILES: R2Bucket;
+  FILES?: R2Bucket;
+  KV_FILES?: KVNamespace;
   ASSETS: Fetcher;
 }
 
@@ -256,6 +257,45 @@ function photoType(bytes: Uint8Array, contentType: string) {
   return options.find((option) => option.ok && option.mime === normalized) || null;
 }
 
+async function storePhoto(env: Env, key: string, bytes: Uint8Array, mime: string) {
+  if (env.FILES) {
+    await env.FILES.put(key, bytes, { httpMetadata: { contentType: mime, cacheControl: "public, max-age=31536000, immutable" } });
+    return;
+  }
+  if (env.KV_FILES) {
+    await env.KV_FILES.put(key, bytes, { metadata: { contentType: mime } });
+    return;
+  }
+  throw new Error("Photo storage is not configured.");
+}
+
+async function deletePhoto(env: Env, key: string) {
+  if (env.FILES) await env.FILES.delete(key);
+  else if (env.KV_FILES) await env.KV_FILES.delete(key);
+}
+
+async function storedPhotoResponse(env: Env, key: string) {
+  if (env.FILES) {
+    const object = await env.FILES.get(key);
+    if (!object) return null;
+    const headers = new Headers();
+    object.writeHttpMetadata(headers);
+    headers.set("ETag", object.httpEtag);
+    headers.set("Cache-Control", "public, max-age=31536000, immutable");
+    return new Response(object.body, { headers: securityHeaders(headers) });
+  }
+  if (env.KV_FILES) {
+    const object = await env.KV_FILES.getWithMetadata<{ contentType?: string }>(key, "arrayBuffer");
+    if (!object.value) return null;
+    const headers = securityHeaders(new Headers({
+      "Content-Type": object.metadata?.contentType || "application/octet-stream",
+      "Cache-Control": "public, max-age=31536000, immutable",
+    }));
+    return new Response(object.value, { headers });
+  }
+  return null;
+}
+
 async function activitiesResponse(db: D1Database, viewerId: string | undefined) {
   const viewer = viewerId || "";
   const rows = await all(db, `SELECT a.*, COUNT(iu.id) AS interested_count FROM activities a
@@ -304,16 +344,16 @@ async function handlePhotoUpload(request: Request, env: Env, userId: string, rep
   }
 
   const key = `${crypto.randomUUID()}.${type.ext}`;
-  await env.FILES.put(key, bytes, { httpMetadata: { contentType: type.mime, cacheControl: "public, max-age=31536000, immutable" } });
+  await storePhoto(env, key, bytes, type.mime);
   try {
     if (replaceId) {
       await run(env.DB, "UPDATE profile_photos SET url=?,storage_key=?,mime=?,size=?,sort_order=?,created_at=? WHERE id=? AND user_id=?", `/uploads/${key}`, key, type.mime, bytes.byteLength, sortOrder, now(), replaceId, userId);
-      if (current?.storage_key) await env.FILES.delete(String(current.storage_key));
+      if (current?.storage_key) await deletePhoto(env, String(current.storage_key));
     } else {
       await run(env.DB, "INSERT INTO profile_photos (id,user_id,url,storage_key,mime,size,sort_order,created_at) VALUES (?,?,?,?,?,?,?,?)", crypto.randomUUID(), userId, `/uploads/${key}`, key, type.mime, bytes.byteLength, sortOrder, now());
     }
   } catch (error) {
-    await env.FILES.delete(key);
+    await deletePhoto(env, key);
     throw error;
   }
   return json({ user: await getProfile(env.DB, userId) }, replaceId ? 200 : 201);
@@ -485,7 +525,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
     const count = Number((await first(env.DB, "SELECT COUNT(*) AS count FROM profile_photos WHERE user_id=?", userId))?.count || 0);
     if (ready && count <= 2) return json({ error: "Keep at least two photos on a live profile. Replace one instead." }, 400);
     await run(env.DB, "DELETE FROM profile_photos WHERE id=?", photoId);
-    if (current.storage_key) await env.FILES.delete(String(current.storage_key));
+    if (current.storage_key) await deletePhoto(env, String(current.storage_key));
     return empty();
   }
 
@@ -664,13 +704,7 @@ async function handleApi(request: Request, env: Env): Promise<Response> {
 async function handleUpload(request: Request, env: Env) {
   const key = decodeURIComponent(new URL(request.url).pathname.replace(/^\/uploads\//, ""));
   if (!key || key.includes("/")) return json({ error: "File not found." }, 404);
-  const object = await env.FILES.get(key);
-  if (!object) return json({ error: "File not found." }, 404);
-  const headers = new Headers();
-  object.writeHttpMetadata(headers);
-  headers.set("ETag", object.httpEtag);
-  headers.set("Cache-Control", "public, max-age=31536000, immutable");
-  return new Response(object.body, { headers: securityHeaders(headers) });
+  return (await storedPhotoResponse(env, key)) || json({ error: "File not found." }, 404);
 }
 
 export default {

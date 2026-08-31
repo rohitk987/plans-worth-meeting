@@ -1,0 +1,28 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "plans-worth-meeting",
+  "main": "dist/server/index.js",
+  "compatibility_date": "2026-05-15",
+  "compatibility_flags": ["nodejs_compat"],
+  "no_bundle": true,
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "plans-worth-meeting-db",
+      "database_id": "757dac10-241e-4889-8468-55a51912ad31"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "KV_FILES",
+      "id": "717568abbea24c338c2f2b34f852497c"
+    }
+  ],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "dist/client",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true
+  }
+}

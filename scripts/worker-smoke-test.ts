@@ -157,8 +157,8 @@ async function run() {
     method: "POST",
     body: JSON.stringify({ content: "Want to meet by the park gate?", clientNonce: `worker-${suffix}` }),
   }, 201);
-  const messageEvent = await readUntil(reader, "event: message");
-  assert(messageEvent.includes("Want to meet by the park gate?"));
+  const messageEvent = await readUntil(reader, "Want to meet by the park gate?");
+  assert(messageEvent.includes("event: message"));
   const persisted = await b.request<{ messages: { sender_id: string; content: string }[] }>(`/api/conversations/${accepted.conversationId}`);
   assert.equal(persisted.messages[0].sender_id, aUser.id);
   assert.equal(persisted.messages[0].content, "Want to meet by the park gate?");
@@ -176,7 +176,7 @@ async function run() {
   assert.equal(restored.user.id, aUser.id);
   assert.equal(restored.user.onboardingComplete, true);
 
-  console.log("Worker smoke test passed: D1, R2, auth, privacy, onboarding, invitations, rejection, match, SSE chat, date, and session restore.");
+  console.log("Worker smoke test passed: D1, durable photo storage, auth, privacy, onboarding, invitations, rejection, match, SSE chat, date, and session restore.");
 }
 
 run().catch((error) => {

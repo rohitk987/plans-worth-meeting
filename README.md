@@ -2,6 +2,8 @@
 
 Plans is a Bangalore dating app where people choose an activity first, see who is down, and invite one person to join them.
 
+Production: https://plans-worth-meeting.signaltradehq.workers.dev
+
 ## Run locally
 
 Requirements: Node.js 24 or newer and pnpm.
@@ -34,7 +36,7 @@ pnpm test:smoke
 pnpm build
 ```
 
-The default production build targets Sites with a Cloudflare Worker, D1 for structured records, and R2 for uploaded photos. A standalone Node build remains available through `pnpm build:node` and `pnpm start:node`.
+The production build is Cloudflare Worker-compatible. The native Cloudflare deployment uses D1 for structured records and KV for uploaded photos; the Sites-compatible build continues to support its managed R2 binding. A standalone Node build remains available through `pnpm build:node` and `pnpm start:node`.
 
 The smoke test uses isolated temporary databases and covers public browsing, private-profile isolation, account-state authorization, account creation, onboarding, uploads, OTP verification, invitations, rejection, matching, live message delivery, chat persistence, date confirmation, logout/login restoration, secure production cookies, reverse-proxy origins, honest production OTP failure, and disabled production seed credentials.
 

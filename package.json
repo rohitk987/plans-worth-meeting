@@ -8,6 +8,7 @@
     "dev:sites": "vite --config vite.sites.config.ts",
     "build": "vite build --config vite.sites.config.ts",
     "build:node": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist-node",
+    "deploy:cloudflare": "wrangler deploy --config wrangler.cloudflare.jsonc",
     "start": "vite preview --config vite.sites.config.ts --host",
     "start:node": "node dist-node/index.js",
     "preview": "vite preview --config vite.sites.config.ts --host",
