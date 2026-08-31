@@ -1,0 +1,7 @@
+node_modules/
+dist/
+data/
+.manus-logs/
+*.log
+.wrangler/
+.dev.vars*
